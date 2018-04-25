@@ -42,8 +42,8 @@ var CloudDownloadsView = {
       </vbox>
     </hbox>
     <hbox>
-      <toolbarbutton id='cloudDownloadCancel' class='panelCloudNotificationUI-button'/>
-      <toolbarbutton id='cloudDownloadSave' class='panelCloudNotificationUI-button' default='true'/>
+      <button id='cloudDownloadCancel' class='panelCloudNotificationUI-button'/>
+      <button id='cloudDownloadSave' class='panelCloudNotificationUI-button' default='true'/>
     </hbox>`,
 
   get browserWindow() {
@@ -697,12 +697,12 @@ var CloudDownloadsInternal = {
 var WindowListener = {
   setupBrowserUI: function wm_setupBrowserUI(window) {
     const utils = window.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
-    utils.loadSheetUsingURIString(CloudDownloadsView.stylesURL, Ci.nsIDOMWindowUtils.AGENT_SHEET);
+    utils.loadSheetUsingURIString(CloudDownloadsView.stylesURL, Ci.nsIDOMWindowUtils.AUTHOR_SHEET);
   },
 
   tearDownBrowserUI: function wm_tearDownBrowserUI(window) {
     const utils = window.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
-    utils.removeSheetUsingURIString(CloudDownloadsView.stylesURL, Ci.nsIDOMWindowUtils.AGENT_SHEET);
+    utils.removeSheetUsingURIString(CloudDownloadsView.stylesURL, Ci.nsIDOMWindowUtils.AUTHOR_SHEET);
   },
 
   // nsIWindowMediatorListener functions

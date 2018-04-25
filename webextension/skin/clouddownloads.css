@@ -67,7 +67,6 @@ richlistitem.download[active] {
 
 #cloudDownloadDetail {
   opacity: var(--downloads-item-details-opacity);
-  margin-inline-end: 0px !important;
 }
 
 #multiProviderSelect[hidden="true"] {
@@ -80,7 +79,7 @@ richlistitem.download[active] {
 }
 
 #multiProviderSelect .radio-icon {
-  margin-inline-end: 6px !important;
+  margin-inline-end: 6px;
   width: 16px;
   margin-inline-start: 6px;
   height: 16px;
@@ -96,19 +95,18 @@ richlistitem.download[active] {
 
 #panelCloudNotification .panelCloudNotificationUI-button {
   -moz-appearance: none;
-  /* !important for the color and background-color to override
-  respective values in global toolbarbutton.css */
-  color: #0c0c0d !important;
-  background-color: #e4e4e4 !important;
+  color: #0c0c0d;
+  background-color: #e4e4e4;
   border-radius: 2px;
   text-shadow: none;
   height: 30px;
   min-width: 200px;
+  margin: 5px 5px 10px;
 }
 
 #panelCloudNotification .panelCloudNotificationUI-button[default] {
-  color: #ffffff !important;
-  background-color: #0060df !important;
+  color: #ffffff;
+  background-color: #0060df;
 }
 
 #panelCloudNotification .panelCloudNotificationUI-button[disabled] {
@@ -116,11 +114,11 @@ richlistitem.download[active] {
 }
 
 #panelCloudNotification .panelCloudNotificationUI-button:hover:not([disabled]) {
-  background-color: rgba(12, 12, 13, 0.2) !important;
+  background-color: rgba(12, 12, 13, 0.2);
 }
 
 #panelCloudNotification .panelCloudNotificationUI-button[default]:hover:not([disabled]) {
-  background-color: #003eaa !important;
+  background-color: #003eaa;
 }
 
 #moveDownload[hidden="true"] + menuseparator {
