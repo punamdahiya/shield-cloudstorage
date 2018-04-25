@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 ChromeUtils.import("resource://gre/modules/Services.jsm");
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 ChromeUtils.defineModuleGetter(this, "CloudStorage",
@@ -38,8 +42,8 @@ var CloudDownloadsView = {
       </vbox>
     </hbox>
     <hbox>
-      <button id='cloudDownloadCancel' />
-      <button id='cloudDownloadSave' default='true'/>
+      <toolbarbutton id='cloudDownloadCancel' class='panelCloudNotificationUI-button'/>
+      <toolbarbutton id='cloudDownloadSave' class='panelCloudNotificationUI-button' default='true'/>
     </hbox>`,
 
   get browserWindow() {
@@ -310,8 +314,8 @@ var CloudDownloadsView = {
 
     let panelCloudNotification = browserWindow.document.getElementById("panelCloudNotification");
     if (panelCloudNotification) {
-      if (!panelCloudNotification.getAttribute("show")) {
-        panelCloudNotification.setAttribute("show", "true");
+      if (panelCloudNotification.getAttribute("hidden")) {
+        panelCloudNotification.removeAttribute("hidden");
       }
       return;
     }
@@ -355,7 +359,7 @@ var CloudDownloadsView = {
     }
 
     document.getElementById("cloudDownloadCancel").setAttribute("label", "Not Now");
-    panelCloudNotification.setAttribute("show", "true");
+    panelCloudNotification.removeAttribute("hidden");
     panelCloudNotification.addEventListener("click", this);
   },
 
@@ -364,6 +368,7 @@ var CloudDownloadsView = {
     option.id = key;
     option.type = "radio";
 
+    option.setAttribute("class", "panelCloudNotificationUI-radio");
     option.setAttribute("label", "Save to " + providerName);
     option.setAttribute("provider", this._formatProviderName(providerName));
     return option;
@@ -387,7 +392,7 @@ var CloudDownloadsView = {
       multiProviderSelect.appendChild(
         this._addRadioOption(provider.key, provider.name, document));
     }
-    multiProviderSelect.setAttribute("show", "true");
+    multiProviderSelect.removeAttribute("hidden");
   },
 
   _iconURL(name) {
@@ -531,14 +536,14 @@ var CloudDownloadsView = {
         // Invoke handleMove to prepare future downloads move to Download Folder by checking
         // if Download folder exists in cloud provider folder, if not create one
         CloudDownloadsInternal.handleMove();
-        event.currentTarget.removeAttribute("show");
+        event.currentTarget.setAttribute("hidden", "true");
       }
       break;
     case "cloudDownloadCancel":
       // Set interval when notification was last shown
       Services.prefs.setIntPref(CLOUD_SERVICES_PREF + "lastprompt",
         Math.floor(Date.now() / 1000));
-      event.currentTarget.removeAttribute("show");
+      event.currentTarget.setAttribute("hidden", "true");
       break;
     case "cloudDownloadPreference": {
       const origin = null;

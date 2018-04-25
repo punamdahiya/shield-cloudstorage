@@ -37,11 +37,11 @@
         let result = providers.find(checkProvider, this);
         switch (result) {
           case "dropbox":
-            providerElem.setAttribute("class","dropbox");
+            providerElem.setAttribute("class","providerIcon dropbox");
             this.setAttribute("cloudstorage","dropbox");
             break;
           case "google drive":
-            providerElem.setAttribute("class","googledrive");
+            providerElem.setAttribute("class","providerIcon googledrive");
             this.setAttribute("cloudstorage","googledrive");
             break;
         }
