@@ -21,6 +21,10 @@ ChromeUtils.defineModuleGetter(this, "PlacesUtils",
 ChromeUtils.defineModuleGetter(this, "RecentWindow",
   "resource:///modules/RecentWindow.jsm");
 
+Cu.importGlobalProperties(["URL"]);
+XPCOMUtils.defineLazyScriptGetter(this, ["DownloadsView"],
+  "chrome://browser/content/downloads/downloads.js");
+
 const EXPORTED_SYMBOLS = ["CloudDownloadsView"];
 const CLOUD_SERVICES_PREF = "cloud.services.";
 const CLOUD_PROVIDER_DEFAULT_ICON = "default";
@@ -141,9 +145,7 @@ var CloudDownloadsView = {
     }
   },
 
-  unRegisterContextMenu() {
-    const browserWindow = this.browserWindow;
-
+  unRegisterContextMenu(browserWindow) {
     const moveDownloadMenuItem = browserWindow.document.getElementById("moveDownload");
     if (!moveDownloadMenuItem) {
       return;
@@ -218,13 +220,19 @@ var CloudDownloadsView = {
       if (this.stylesURL) {
         WindowListener.tearDownBrowserUI(domWindow);
       }
-      this.unRegisterContextMenu();
+      this.unRegisterContextMenu(domWindow);
     }
+
+    const placesWindow = Services.wm.getMostRecentWindow("Places:Organizer");
+    if (this.stylesURL && placesWindow) {
+      WindowListener.tearDownBrowserUI(placesWindow);
+    }
+
     // Stop listening for any new browser windows to open
     Services.wm.removeListener(WindowListener);
   },
 
-  async init() {
+  async toggleAPIEnabledState() {
     try {
       if (!this.gIsAPIEnabled) {
         if (this.isInitialized) {
@@ -253,16 +261,8 @@ var CloudDownloadsView = {
     // one of cloud provider folder, if yes exit without showing notification
     // Telemetry - how many such users
     const dwnldDirPath = await Downloads.getPreferredDownloadsDirectory();
-    let hasExistingCloudDwnldDir = false;
-    this.providers.forEach((value, key) => {
-      if (dwnldDirPath.includes(value.downloadPath)) {
-        hasExistingCloudDwnldDir = true;
-      }
-    });
-    if (hasExistingCloudDwnldDir) {
-      return true;
-    }
-    return false;
+    const providerValues = [...this.providers.values()];
+    return providerValues.some(v => dwnldDirPath.includes(v.downloadPath));
   },
 
   /**
@@ -399,7 +399,7 @@ var CloudDownloadsView = {
     if (this._formatProviderName(name) === "localdownload") {
       return "moz-icon://" + CloudDownloadsInternal.defaultDownloadDirIconURL + "?size=16";
     }
-    return new this.browserWindow.URL(this.stylesURL).origin + "/skin/" + this._formatProviderName(name) + ".svg";
+    return new URL(this.stylesURL).origin + "/skin/" + this._formatProviderName(name) + ".svg";
   },
 
   /**
@@ -435,7 +435,7 @@ var CloudDownloadsView = {
   },
 
   async _displayMoveToCloudContextMenuItem(downloadElement) {
-    const aPopupMenu = this.browserWindow.document.getElementById("downloadsContextMenu");
+    const aPopupMenu = downloadElement.ownerDocument.getElementById("downloadsContextMenu");
     let menuItem = aPopupMenu.getElementsByAttribute("id", "moveDownload")[0];
     if (menuItem) {
       menuItem.setAttribute("hidden", "true");
@@ -468,7 +468,7 @@ var CloudDownloadsView = {
       } else {
         // Downloaded Item is saved in cloud storage provider folder
 
-        // Find local prefereed download directory path
+        // Find local preferred download directory path
         // to display correct icon in Local Download context menu option
         await CloudDownloadsInternal._setDefaultDownloadDirIconURL();
 
@@ -518,6 +518,7 @@ var CloudDownloadsView = {
 
       // If clicked menu item is 'Move to Local Download' with providerKey attribute as 'local'
       // invoke handleLocalMove to move download to user default download directoty
+      // event.target.parentNode.triggerNode is returning null here, why?
       if (providerKey === "local") {
         CloudDownloadsInternal.handleLocalMove(event.target);
       } else {
@@ -673,6 +674,9 @@ var CloudDownloadsInternal = {
 
     const document = CloudDownloadsView.browserWindow.document;
     const downloadItemElements = document.getElementById("downloadsListBox").childNodes;
+    // Commented as getting TypeError: DownloadsView.itemForElement(...) is undefined error, to be figured
+    // const element = downloadItemElements[moveDownloadMenuItem.getAttribute("itemIndex")];
+    // const download = DownloadsView.itemForElement(element).download;
     const download = downloadItemElements[moveDownloadMenuItem.getAttribute("itemIndex")]._shell.download;
     if (download.succeeded) {
       await this._moveDownload(download, providerDownloadFolder);
@@ -735,9 +739,9 @@ var WindowListener = {
  * generic pref that shows if cloud storage API is in use, by default set to false.
  */
 XPCOMUtils.defineLazyPreferenceGetter(CloudDownloadsView, "gIsAPIEnabled",
-  CLOUD_SERVICES_PREF + "api.enabled", false, () => CloudDownloadsView.init());
+  CLOUD_SERVICES_PREF + "api.enabled", false, () => CloudDownloadsView.toggleAPIEnabledState());
 
 XPCOMUtils.defineLazyPreferenceGetter(CloudDownloadsInternal, "preferredProviderKey",
   CLOUD_SERVICES_PREF + "storage.key", "");
 
-CloudDownloadsView.promiseInit = CloudDownloadsView.init();
+CloudDownloadsView.promiseInit = CloudDownloadsView.toggleAPIEnabledState();

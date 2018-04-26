@@ -40,7 +40,7 @@ this.cloudstorage = class extends ExtensionAPI {
 
           const isAPIEnabled = Services.prefs.getBoolPref("cloud.services.api.enabled", false);
           if (isAPIEnabled) {
-            await CloudDownloadsView.init();
+            await CloudDownloadsView.toggleAPIEnabledState();
           } else {
             // On install and enabling the extension
             const interval = 0; // Interval to be picked from Study Utils Config

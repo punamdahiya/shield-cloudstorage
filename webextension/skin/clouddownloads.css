@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-richlistitem[type="download"] {
-  -moz-binding: url("/privileged/ui/cloudstorage.xml#cloud-storage") !important;
+#downloadsPanel-mainView richlistitem[type="download"] {
+  -moz-binding: url("/privileged/ui/cloudstorage.xml#cloud-storage");
 }
 
-richlistitem.download[active] {
-  -moz-binding: url("/privileged/ui/cloudstorage.xml#cloud-storage") !important;
+#downloadsRichListBox richlistitem.download[active] {
+  -moz-binding: url("/privileged/ui/cloudstorage.xml#cloud-storage");
 }
 
 .providerIcon {
@@ -96,7 +96,7 @@ richlistitem.download[active] {
 #panelCloudNotification .panelCloudNotificationUI-button {
   -moz-appearance: none;
   color: #0c0c0d;
-  background-color: #e4e4e4;
+  background-color: rgba(12, 12, 13, 0.1);
   border-radius: 2px;
   text-shadow: none;
   height: 30px;
