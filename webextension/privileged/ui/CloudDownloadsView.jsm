@@ -404,7 +404,7 @@ var CloudDownloadsView = {
   },
 
   _iconURL(name) {
-    if (this._formatProviderName(name) === "localdownload") {
+    if (this._formatProviderName(name) === "localdownloads") {
       return "moz-icon://" + CloudDownloadsInternal.defaultDownloadDirIconURL + "?size=16";
     }
     return new URL(this.stylesURL).origin + "/skin/" + this._formatProviderName(name) + ".svg";
@@ -441,7 +441,7 @@ var CloudDownloadsView = {
       }
 
       const downloadType = downloadElement.getAttribute("cloudstorage");
-      // Downloaded Item is saved in local download folder
+      // Downloaded Item is saved in local downloads folder
       if (this.providers.size > 1) {
         let subMenuItem =  this._setMoveDownloadMenuPopUpAttributes(menuItem);
         this.providers.forEach((value, key) => {
@@ -451,11 +451,11 @@ var CloudDownloadsView = {
           }
         });
         if (downloadType != "local") {
-          subMenuItem = this._setMenuItemAttributes(subMenuItem, "local", {displayName: "Local Download"}, downloadElement);
+          subMenuItem = this._setMenuItemAttributes(subMenuItem, "local", {displayName: "Local Downloads"}, downloadElement);
         }
       } else {
         const provider = downloadType != "local" ?
-          ["local", {displayName: "Local Download"}] : this.providers.entries().next().value;
+          ["local", {displayName: "Local Downloads"}] : this.providers.entries().next().value;
         menuItem = this._setMenuItemAttributes(menuItem, provider[0], provider[1], downloadElement);
         menuItem.setAttribute("label", "Move To " + provider[1].displayName);
         menuItem.removeAttribute("hidden");
@@ -504,7 +504,7 @@ var CloudDownloadsView = {
         return;
       }
 
-      // If clicked menu item is 'Move to Local Download' with providerKey attribute as 'local'
+      // If clicked menu item is 'Move to Local Downloads' with providerKey attribute as 'local'
       // invoke handleLocalMove to move download to user default download directoty
       if (providerKey === "local") {
         CloudDownloadsInternal.handleLocalMove(download);
