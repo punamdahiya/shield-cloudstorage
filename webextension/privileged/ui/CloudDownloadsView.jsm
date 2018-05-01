@@ -32,18 +32,6 @@ var CloudDownloadsView = {
   stylesURL: null,      // Property storing URL to clouddownloads css
   providers: null,      // Property of type Map object storing providers data
   isInitialized: false, // Property to track API has added required observers
-  notificationHTML: `
-    <hbox>
-      <image id='cloudDownloadTypeIcon'/>
-      <vbox id='cloudDownloadContainer'>
-        <description id='cloudDownloadTitle'/>
-        <hbox>
-          <description id='cloudDownloadDetail'/>
-          <label id='cloudDownloadPreference' class='text-link'/>
-        </hbox>
-      </vbox>
-    </hbox>
-    <hbox/>`,
 
   getRecentWindow() {
     return RecentWindow.getMostRecentBrowserWindow();
@@ -256,6 +244,54 @@ var CloudDownloadsView = {
     }
   },
 
+  buildNotificationHTML(document) {
+    const fragment = document.createDocumentFragment();
+    const panelCloudNotification = document.createElement("vbox");
+    panelCloudNotification.setAttribute("id", "panelCloudNotification");
+    fragment.appendChild(panelCloudNotification);
+
+    const providerContainer = document.createElement("hbox");
+    panelCloudNotification.appendChild(providerContainer);
+
+    const icon = document.createElement("image");
+    icon.id = "cloudDownloadTypeIcon";
+    providerContainer.appendChild(icon);
+
+    const cloudDownloadContainer = document.createElement("vbox");
+    cloudDownloadContainer.id = "cloudDownloadContainer";
+
+    const desc = document.createElement("description");
+    desc.id = "cloudDownloadTitle";
+    cloudDownloadContainer.appendChild(desc);
+
+    const hbox = document.createElement("hbox");
+    cloudDownloadContainer.appendChild(hbox);
+    const innerDesc = document.createElement("description");
+    innerDesc.id = "cloudDownloadDetail";
+    const prefLink = document.createElement("label");
+    prefLink.className = "text-link";
+    prefLink.id = "cloudDownloadPreference";
+    hbox.appendChild(innerDesc);
+    hbox.appendChild(prefLink);
+
+    const radiogroup = document.createElement("radiogroup");
+    radiogroup.id = "multiProviderSelect";
+    cloudDownloadContainer.appendChild(radiogroup);
+
+    providerContainer.appendChild(cloudDownloadContainer);
+
+    const buttonContainer = document.createElement("hbox");
+    panelCloudNotification.appendChild(buttonContainer);
+    for (const id of ["cloudDownloadCancel", "cloudDownloadSave"]) {
+      const button = document.createElement("button");
+      button.id = id;
+      button.className = "panelCloudNotificationUI-button";
+      buttonContainer.appendChild(button);
+    }
+    buttonContainer.lastChild.setAttribute("default", "true");
+    return fragment;
+  },
+
   /**
    * Display Cloud Storage Notification inside download panel that asks user to
    * save all subsequent downloads to their preferred cloud storage provider by changing
@@ -269,7 +305,8 @@ var CloudDownloadsView = {
       return;
     }
 
-    const panelDownload = browserWindow.document.getElementById("downloadsPanel-mainView");
+    const document = browserWindow.document;
+    const panelDownload = document.getElementById("downloadsPanel-mainView");
     if (!panelDownload) {
       return;
     }
@@ -294,7 +331,7 @@ var CloudDownloadsView = {
     // Before showing notification check if move download context menu was
     // registered previously, exit if attempt to successfully register context menu fails
     try {
-      const moveDownloadMenuItem = browserWindow.document.getElementById("moveDownload");
+      const moveDownloadMenuItem = document.getElementById("moveDownload");
       if (!moveDownloadMenuItem) {
         await this.registerContextMenu(browserWindow);
       }
@@ -303,7 +340,7 @@ var CloudDownloadsView = {
       return;
     }
 
-    let panelCloudNotification = browserWindow.document.getElementById("panelCloudNotification");
+    let panelCloudNotification = document.getElementById("panelCloudNotification");
     if (panelCloudNotification) {
       if (panelCloudNotification.getAttribute("hidden")) {
         panelCloudNotification.removeAttribute("hidden");
@@ -314,28 +351,8 @@ var CloudDownloadsView = {
     let providerDisplayName = null;
     let providerIcon = null;
     let providerKey = null;
-    const document = browserWindow.document;
-
-    const fragment = document.createDocumentFragment();
-    panelCloudNotification = document.createElement("vbox");
-    panelCloudNotification.setAttribute("id", "panelCloudNotification");
-    fragment.appendChild(panelCloudNotification);
+    const fragment = this.buildNotificationHTML(document);
     panelDownload.prepend(fragment);
-
-    // panelCloudNotification.innerHTML = this.notificationHTML;
-    panelCloudNotification.unsafeSetInnerHTML(this.notificationHTML);
-    const container = panelCloudNotification.querySelector("#cloudDownloadContainer");
-    const radiogroup = document.createElement("radiogroup");
-    radiogroup.id = "multiProviderSelect";
-    container.appendChild(radiogroup);
-    const buttonContainer = container.parentNode.nextElementSibling;
-    for (const id of ["cloudDownloadCancel", "cloudDownloadSave"]) {
-      const button = document.createElement("button");
-      button.id = id;
-      button.className = "panelCloudNotificationUI-button";
-      buttonContainer.appendChild(button);
-    }
-    buttonContainer.lastChild.setAttribute("default", "true");
 
     if (providersMap.size > 1 ) {
       this._addNotificationMultipleProviders(providersMap, document);
@@ -364,6 +381,7 @@ var CloudDownloadsView = {
     }
 
     document.getElementById("cloudDownloadCancel").setAttribute("label", "Not Now");
+    panelCloudNotification = document.getElementById("panelCloudNotification");
     panelCloudNotification.removeAttribute("hidden");
     panelCloudNotification.addEventListener("click", this);
   },
