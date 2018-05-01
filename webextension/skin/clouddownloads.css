@@ -50,7 +50,7 @@
 }
 
 #cloudDownloadTypeIcon[data-provider-icon="default"] {
-  --provider-icon: url("/skin/download.svg");
+  --provider-icon: url("chrome://browser/skin/downloads/download-icons.svg#arrow-with-bar");
 }
 
 #cloudDownloadContainer {

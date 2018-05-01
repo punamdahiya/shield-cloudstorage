@@ -94,15 +94,16 @@ var CloudDownloadsView = {
 
       const fragment = browserWindow.document.createDocumentFragment();
       const separator = browserWindow.document.createElement("menuseparator");
-      separator.setAttribute("id", "moveDownloadSeparator");
+      separator.id = "moveDownloadSeparator";
       fragment.appendChild(separator);
 
       if (this.providers.size > 1) {
         const moveDownloadMenu = browserWindow.document.createElement("menu");
-        moveDownloadMenu.setAttribute("id", "moveDownload");
+        moveDownloadMenu.id = "moveDownload";
+        moveDownloadMenu.setAttribute("label", "Move Download To\u2026");
         moveDownloadMenu.setAttribute("hidden", "true");
         const moveDownloadMenuPopup = browserWindow.document.createElement("menupopup");
-        moveDownloadMenuPopup.setAttribute("id", "moveDownloadSubMenu");
+        moveDownloadMenuPopup.id = "moveDownloadSubMenu";
         moveDownloadMenuPopup.setAttribute("hidden", "true");
 
         this.providers.forEach((value, key) => {
@@ -115,15 +116,13 @@ var CloudDownloadsView = {
       } else {
         // Add skeleton Move to menu item in context menu
         const moveDownloadItem = browserWindow.document.createElement("menuitem");
-        moveDownloadItem.setAttribute("id", "moveDownload");
+        moveDownloadItem.id = "moveDownload";
         moveDownloadItem.setAttribute("hidden", "true");
         fragment.appendChild(moveDownloadItem);
       }
       aPopupMenu.insertBefore(fragment, menuItem.nextSibling);
       aPopupMenu.addEventListener("command", this);
-      aPopupMenu.addEventListener("popuphidden", this);
-      const dwnldsListBox = browserWindow.document.getElementById("downloadsListBox");
-      dwnldsListBox.addEventListener("contextmenu", this);
+      aPopupMenu.addEventListener("popupshowing", this);
 
       // Find local preferred download directory path
       // to display correct icon in Local Download context menu option
@@ -140,14 +139,12 @@ var CloudDownloadsView = {
     }
 
     const aPopupMenu = browserWindow.document.getElementById("downloadsContextMenu");
-    aPopupMenu.removeEventListener("click", this);
+    aPopupMenu.removeEventListener("command", this);
+    aPopupMenu.removeEventListener("popupshowing", this);
     aPopupMenu.removeChild(moveDownloadMenuItem);
 
     const moveDownloadSeparator = browserWindow.document.getElementById("moveDownloadSeparator");
     aPopupMenu.removeChild(moveDownloadSeparator);
-
-    const dwnldsListBox = browserWindow.document.getElementById("downloadsListBox");
-    dwnldsListBox.removeEventListener("contextmenu", this);
   },
 
   /**
@@ -247,7 +244,7 @@ var CloudDownloadsView = {
   buildNotificationHTML(document) {
     const fragment = document.createDocumentFragment();
     const panelCloudNotification = document.createElement("vbox");
-    panelCloudNotification.setAttribute("id", "panelCloudNotification");
+    panelCloudNotification.id = "panelCloudNotification";
     fragment.appendChild(panelCloudNotification);
 
     const providerContainer = document.createElement("hbox");
@@ -325,18 +322,6 @@ var CloudDownloadsView = {
     }
 
     if (CloudDownloadsInternal.checkIfExistingCloudProviderDownloadSettings()) {
-      return;
-    }
-
-    // Before showing notification check if move download context menu was
-    // registered previously, exit if attempt to successfully register context menu fails
-    try {
-      const moveDownloadMenuItem = document.getElementById("moveDownload");
-      if (!moveDownloadMenuItem) {
-        await this.registerContextMenu(browserWindow);
-      }
-    } catch (err) {
-      Cu.reportError(err);
       return;
     }
 
@@ -434,7 +419,6 @@ var CloudDownloadsView = {
   },
 
   _setMoveDownloadMenuPopUpAttributes(menuItem) {
-    menuItem.setAttribute("label", "Move Download To...");
     menuItem.removeAttribute("hidden");
     const menuPopup = menuItem.menupopup;
     menuPopup.removeAttribute("hidden");
@@ -458,37 +442,23 @@ var CloudDownloadsView = {
 
       const downloadType = downloadElement.getAttribute("cloudstorage");
       // Downloaded Item is saved in local download folder
-      if (downloadType === "local") {
-        if (this.providers.size > 1) {
-          let subMenuItem =  this._setMoveDownloadMenuPopUpAttributes(menuItem);
-          this.providers.forEach((value, key) => {
+      if (this.providers.size > 1) {
+        let subMenuItem =  this._setMoveDownloadMenuPopUpAttributes(menuItem);
+        this.providers.forEach((value, key) => {
+          if (this._formatProviderName(value.displayName) !== downloadType) {
             subMenuItem = this._setMenuItemAttributes(subMenuItem, key, value, downloadElement);
             subMenuItem = subMenuItem.nextSibling;
-          });
-        } else {
-          // Display available provider as context menu option
-          const provider = this.providers.entries().next().value;
-          menuItem = this._setMenuItemAttributes(menuItem, provider[0], provider[1], downloadElement);
-          menuItem.setAttribute("label", "Move To " + provider[1].displayName);
-          menuItem.removeAttribute("hidden");
+          }
+        });
+        if (downloadType != "local") {
+          subMenuItem = this._setMenuItemAttributes(subMenuItem, "local", {displayName: "Local Download"}, downloadElement);
         }
       } else {
-        // Downloaded Item is saved in cloud storage provider folder
-        // Display context menus for download saved in cloud provider folder
-        if (this.providers.size > 1) {
-          let subMenuItem =  this._setMoveDownloadMenuPopUpAttributes(menuItem);
-          this.providers.forEach((value, key) => {
-            if (this._formatProviderName(value.displayName) !== downloadType) {
-              subMenuItem = this._setMenuItemAttributes(subMenuItem, key, value, downloadElement);
-              subMenuItem = subMenuItem.nextSibling;
-            }
-          });
-          subMenuItem = this._setMenuItemAttributes(subMenuItem, "local", {displayName: "Local Download"}, downloadElement);
-        } else {
-          menuItem = this._setMenuItemAttributes(menuItem, "local", {displayName: "Local Download"}, downloadElement);
-          menuItem.setAttribute("label", "Move To Local Download");
-          menuItem.removeAttribute("hidden");
-        }
+        const provider = downloadType != "local" ?
+          ["local", {displayName: "Local Download"}] : this.providers.entries().next().value;
+        menuItem = this._setMenuItemAttributes(menuItem, provider[0], provider[1], downloadElement);
+        menuItem.setAttribute("label", "Move To " + provider[1].displayName);
+        menuItem.removeAttribute("hidden");
       }
     }
   },
@@ -504,8 +474,16 @@ var CloudDownloadsView = {
     }
 
     // Handle rendering right provider in context menu when shown
-    if (event.type === "contextmenu" && event.currentTarget.id === "downloadsListBox") {
-      const element = event.currentTarget.selectedItem;
+    if (event.type === "popupshowing") {
+      if (event.target.triggerNode.parentNode.id !== "downloadsListBox") {
+        const menuItem = event.target.getElementsByAttribute("id", "moveDownload")[0];
+        if (menuItem) {
+          menuItem.setAttribute("hidden", "true");
+        }
+        return;
+      }
+
+      const element = event.target.triggerNode;
       if (!element) {
         return;
       }
@@ -636,7 +614,8 @@ var CloudDownloadsInternal = {
       OS.Path.join(providerDwnldFldrPath, OS.Path.basename(dwnldTargetPath)) : "";
 
     // Ensure destPath is a unique file
-    destPath = DownloadPaths.createNiceUniqueFile(new FileUtils.File(destPath)).path;
+    const destDir = DownloadPaths.createNiceUniqueFile(new FileUtils.File(destPath));
+    destPath = destDir.path;
 
     try {
       await OS.File.move(dwnldTargetPath, destPath);
@@ -661,7 +640,7 @@ var CloudDownloadsInternal = {
     PlacesUtils.annotations.setPageAnnotation(
       NetUtil.newURI(download.source.url),
       "downloads/destinationFileURI",
-      "file://" + destPath, 0,
+      Services.io.newFileURI(destDir).spec, 0,
       PlacesUtils.annotations.EXPIRE_WITH_HISTORY);
 
     // Explicitly updates the state of a moved download

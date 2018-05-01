@@ -42,7 +42,9 @@ this.cloudstorage = class extends ExtensionAPI {
           if (isAPIEnabled) {
             await CloudDownloadsView.toggleAPIEnabledState();
           } else {
-            // On install and enabling the extension
+            // Set cloud.services.api.enabled pref to true on install and enabling the extension
+            // Changing the prefs will initialize and trigger  toggleAPIEnabledState
+            // because the CloudDownloadsView will observe the pref
             const interval = 0; // Interval to be picked from Study Utils Config
             Services.prefs.setBoolPref("cloud.services.api.enabled", true);
             Services.prefs.setCharPref("cloud.services.interval.prompt", interval);
