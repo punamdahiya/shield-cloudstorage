@@ -22,8 +22,7 @@ ChromeUtils.defineModuleGetter(this, "RecentWindow",
   "resource:///modules/RecentWindow.jsm");
 
 Cu.importGlobalProperties(["URL"]);
-XPCOMUtils.defineLazyScriptGetter(this, ["DownloadsView"],
-  "chrome://browser/content/downloads/downloads.js");
+
 
 const EXPORTED_SYMBOLS = ["CloudDownloadsView"];
 const CLOUD_SERVICES_PREF = "cloud.services.";
@@ -42,15 +41,11 @@ var CloudDownloadsView = {
           <description id='cloudDownloadDetail'/>
           <label id='cloudDownloadPreference' class='text-link'/>
         </hbox>
-        <radiogroup id='multiProviderSelect'/>
       </vbox>
     </hbox>
-    <hbox>
-      <button id='cloudDownloadCancel' class='panelCloudNotificationUI-button'/>
-      <button id='cloudDownloadSave' class='panelCloudNotificationUI-button' default='true'/>
-    </hbox>`,
+    <hbox/>`,
 
-  get browserWindow() {
+  getRecentWindow() {
     return RecentWindow.getMostRecentBrowserWindow();
   },
 
@@ -86,9 +81,9 @@ var CloudDownloadsView = {
         return;
       }
 
+      // There is no other API that awaits the result of CloudStorageInternal.init()
       // Invoke getDownloadFolder on CloudStorage API to ensure API is initialized
-      // This is workaround to force initialize API for first time enter to
-      // ensure getStorageProviders call returns successfully.
+      // before asking CloudStorage API for storage providers info
       await CloudStorage.getDownloadFolder();
       const providers = await CloudStorage.getStorageProviders();
       this.providers = await this._filterProvidersMap(providers);
@@ -137,9 +132,14 @@ var CloudDownloadsView = {
         fragment.appendChild(moveDownloadItem);
       }
       aPopupMenu.insertBefore(fragment, menuItem.nextSibling);
-      aPopupMenu.addEventListener("click", this);
+      aPopupMenu.addEventListener("command", this);
+      aPopupMenu.addEventListener("popuphidden", this);
       const dwnldsListBox = browserWindow.document.getElementById("downloadsListBox");
       dwnldsListBox.addEventListener("contextmenu", this);
+
+      // Find local preferred download directory path
+      // to display correct icon in Local Download context menu option
+      await CloudDownloadsInternal._setDefaultDownloadDirIconURL();
     } catch (err) {
       Cu.reportError(err);
     }
@@ -175,7 +175,7 @@ var CloudDownloadsView = {
     Services.obs.removeObserver(this.observe, "cloudstorage-prompt-notification");
     this.isInitialized = false;
 
-    const browserWindow = this.browserWindow;
+    const browserWindow = this.getRecentWindow();
     const panelCloudNotification = browserWindow.document.getElementById("panelCloudNotification");
     if (!panelCloudNotification) {
       return;
@@ -256,15 +256,6 @@ var CloudDownloadsView = {
     }
   },
 
-  async _checkIfExistingCloudProviderDownloadSettings() {
-    // Check if user has previously set preferred download directoy path as
-    // one of cloud provider folder, if yes exit without showing notification
-    // Telemetry - how many such users
-    const dwnldDirPath = await Downloads.getPreferredDownloadsDirectory();
-    const providerValues = [...this.providers.values()];
-    return providerValues.some(v => dwnldDirPath.includes(v.downloadPath));
-  },
-
   /**
    * Display Cloud Storage Notification inside download panel that asks user to
    * save all subsequent downloads to their preferred cloud storage provider by changing
@@ -272,7 +263,7 @@ var CloudDownloadsView = {
    */
 
   async showNotification() {
-    const browserWindow = this.browserWindow;
+    const browserWindow = this.getRecentWindow();
 
     if (!browserWindow || !browserWindow.document) {
       return;
@@ -296,7 +287,7 @@ var CloudDownloadsView = {
       return;
     }
 
-    if (await this._checkIfExistingCloudProviderDownloadSettings()) {
+    if (CloudDownloadsInternal.checkIfExistingCloudProviderDownloadSettings()) {
       return;
     }
 
@@ -328,9 +319,23 @@ var CloudDownloadsView = {
     const fragment = document.createDocumentFragment();
     panelCloudNotification = document.createElement("vbox");
     panelCloudNotification.setAttribute("id", "panelCloudNotification");
-    panelCloudNotification.unsafeSetInnerHTML(this.notificationHTML);
     fragment.appendChild(panelCloudNotification);
     panelDownload.prepend(fragment);
+
+    // panelCloudNotification.innerHTML = this.notificationHTML;
+    panelCloudNotification.unsafeSetInnerHTML(this.notificationHTML);
+    const container = panelCloudNotification.querySelector("#cloudDownloadContainer");
+    const radiogroup = document.createElement("radiogroup");
+    radiogroup.id = "multiProviderSelect";
+    container.appendChild(radiogroup);
+    const buttonContainer = container.parentNode.nextElementSibling;
+    for (const id of ["cloudDownloadCancel", "cloudDownloadSave"]) {
+      const button = document.createElement("button");
+      button.id = id;
+      button.className = "panelCloudNotificationUI-button";
+      buttonContainer.appendChild(button);
+    }
+    buttonContainer.lastChild.setAttribute("default", "true");
 
     if (providersMap.size > 1 ) {
       this._addNotificationMultipleProviders(providersMap, document);
@@ -402,27 +407,11 @@ var CloudDownloadsView = {
     return new URL(this.stylesURL).origin + "/skin/" + this._formatProviderName(name) + ".svg";
   },
 
-  /**
-   * Returns download item index inside downloadsListBox. This index is saved as
-   * attribute 'itemIndex' on moveDownload or moveDownloadSubMenu (if multiple providers) menuitem
-   * to be used in CloudDownloadsInternal._handleMove method to retrieve respective download object
-   */
-  _listDownloadItemIndex(element) {
-    const children = element.parentNode.childNodes;
-    for (let i = 0; i < children.length; i++) {
-      if (children[i] === element) {
-        return i;
-      }
-    }
-    return -1;
-  },
-
   _setMenuItemAttributes(menuItem, providerKey, providerDetail, downloadElement) {
     menuItem.setAttribute("label", providerDetail.displayName);
     menuItem.setAttribute("providerKey", providerKey);
     menuItem.setAttribute("class", "menuitem-iconic");
     menuItem.setAttribute("image", this._iconURL(providerDetail.displayName));
-    menuItem.setAttribute("itemIndex", this._listDownloadItemIndex(downloadElement));
     return menuItem;
   },
 
@@ -434,7 +423,7 @@ var CloudDownloadsView = {
     return menuPopup.firstChild;
   },
 
-  async _displayMoveToCloudContextMenuItem(downloadElement) {
+  _displayMoveToCloudContextMenuItem(downloadElement) {
     const aPopupMenu = downloadElement.ownerDocument.getElementById("downloadsContextMenu");
     let menuItem = aPopupMenu.getElementsByAttribute("id", "moveDownload")[0];
     if (menuItem) {
@@ -445,11 +434,11 @@ var CloudDownloadsView = {
         return;
       }
 
-      if (await this._checkIfExistingCloudProviderDownloadSettings()) {
+      if (CloudDownloadsInternal.checkIfExistingCloudProviderDownloadSettings()) {
         return;
       }
 
-      const downloadType = downloadElement._shell.element.getAttribute("cloudstorage");
+      const downloadType = downloadElement.getAttribute("cloudstorage");
       // Downloaded Item is saved in local download folder
       if (downloadType === "local") {
         if (this.providers.size > 1) {
@@ -467,11 +456,6 @@ var CloudDownloadsView = {
         }
       } else {
         // Downloaded Item is saved in cloud storage provider folder
-
-        // Find local preferred download directory path
-        // to display correct icon in Local Download context menu option
-        await CloudDownloadsInternal._setDefaultDownloadDirIconURL();
-
         // Display context menus for download saved in cloud provider folder
         if (this.providers.size > 1) {
           let subMenuItem =  this._setMoveDownloadMenuPopUpAttributes(menuItem);
@@ -494,7 +478,7 @@ var CloudDownloadsView = {
   handleEvent(event) {
     // Handle multiple provider displayed as options in notification
     if (event.target.parentElement.id === "multiProviderSelect") {
-      const cloudDownloadSave = event.currentTarget.children[1].children.cloudDownloadSave;
+      const cloudDownloadSave = event.currentTarget.querySelector("#cloudDownloadSave");
       cloudDownloadSave.setAttribute("label", event.target.label);
       cloudDownloadSave.setAttribute("providerKey", event.target.id);
       cloudDownloadSave.removeAttribute("disabled");
@@ -516,14 +500,21 @@ var CloudDownloadsView = {
         return;
       }
 
+      const downloadsEl = event.target.parentNode.triggerNode;
+      const download = downloadsEl.ownerGlobal.DownloadsView.itemForElement(downloadsEl).download;
+
+      // Check if there is a download to be moved to provider folder, if not exit
+      if (!download) {
+        return;
+      }
+
       // If clicked menu item is 'Move to Local Download' with providerKey attribute as 'local'
       // invoke handleLocalMove to move download to user default download directoty
-      // event.target.parentNode.triggerNode is returning null here, why?
       if (providerKey === "local") {
-        CloudDownloadsInternal.handleLocalMove(event.target);
+        CloudDownloadsInternal.handleLocalMove(download);
       } else {
         CloudDownloadsInternal.selectedProvider = { providerKey, value: this.providers.get(providerKey) };
-        CloudDownloadsInternal.handleMove(event.target);
+        CloudDownloadsInternal.handleMove(download);
       }
       return;
     }
@@ -534,9 +525,9 @@ var CloudDownloadsView = {
         const providerKey = event.target.getAttribute("providerKey");
         CloudStorage.savePromptResponse(providerKey, true, true);
         CloudDownloadsInternal.selectedProvider = { providerKey, value: this.providers.get(providerKey) };
-        // Invoke handleMove to prepare future downloads move to Download Folder by checking
+        // Prepare for future downloads move to Download Folder by checking
         // if Download folder exists in cloud provider folder, if not create one
-        CloudDownloadsInternal.handleMove();
+        CloudDownloadsInternal.checkProviderDownloadFolder();
         event.currentTarget.setAttribute("hidden", "true");
       }
       break;
@@ -549,7 +540,7 @@ var CloudDownloadsView = {
     case "cloudDownloadPreference": {
       const origin = null;
       const entryPoint = "CloudStorage";
-      this.browserWindow.openPreferences("paneGeneral", {origin, urlParams: {entrypoint: entryPoint}});
+      this.getRecentWindow().openPreferences("paneGeneral", {origin, urlParams: {entrypoint: entryPoint}});
       break;
     }
     }
@@ -582,6 +573,18 @@ var CloudDownloadsInternal = {
       Cu.reportError(`Couldn't check existance of ${path}`, err);
       return false;
     });
+  },
+
+  checkIfExistingCloudProviderDownloadSettings() {
+    // Check if user has previously set preferred download directoy path as
+    // one of cloud provider folder, if yes exit without showing notification
+    // Telemetry - how many such users
+    if (!CloudDownloadsView.providers) {
+      return false;
+    }
+    const dwnldDirPath = this.downloadDirSetting; // await Downloads.getPreferredDownloadsDirectory();
+    const providerValues = [...CloudDownloadsView.providers.values()];
+    return providerValues.some(v => dwnldDirPath.includes(v.downloadPath));
   },
 
   async _setDefaultDownloadDirIconURL() {
@@ -650,11 +653,10 @@ var CloudDownloadsInternal = {
     await publicList.remove(download);
   },
 
-  async handleMove(moveDownloadMenuItem) {
+  async checkProviderDownloadFolder() {
     if (!this.selectedProvider) {
-      return;
+      return null;
     }
-
     // Compute provider download folder path from selectedProvider object
     const providerDownloadFolder = OS.Path.join(this.selectedProvider.value.downloadPath,
       this.selectedProvider.value.typeSpecificData.default);
@@ -664,32 +666,22 @@ var CloudDownloadsInternal = {
       await OS.File.makeDir(providerDownloadFolder, {ignoreExisting: true});
     } catch (err) {
       Cu.reportError(err);
-      return;
+      return null;
     }
+    return providerDownloadFolder;
+  },
 
-    // Check if there is a download item to be moved to provider folder, if not exit
-    if (!moveDownloadMenuItem) {
-      return;
-    }
-
-    const document = CloudDownloadsView.browserWindow.document;
-    const downloadItemElements = document.getElementById("downloadsListBox").childNodes;
-    // Commented as getting TypeError: DownloadsView.itemForElement(...) is undefined error, to be figured
-    // const element = downloadItemElements[moveDownloadMenuItem.getAttribute("itemIndex")];
-    // const download = DownloadsView.itemForElement(element).download;
-    const download = downloadItemElements[moveDownloadMenuItem.getAttribute("itemIndex")]._shell.download;
+  async handleMove(download) {
+    const providerDownloadFolder = await this.checkProviderDownloadFolder();
     if (download.succeeded) {
       await this._moveDownload(download, providerDownloadFolder);
     }
   },
 
-  async handleLocalMove(moveDownloadMenuItem) {
+  async handleLocalMove(download) {
     const downloadsDir = await Downloads.getPreferredDownloadsDirectory();
     const downloadsDirExists = await this.checkIfAssetExists(downloadsDir);
     if (downloadsDirExists) {
-      const document = CloudDownloadsView.browserWindow.document;
-      const downloadItemElements = document.getElementById("downloadsListBox").childNodes;
-      const download = downloadItemElements[moveDownloadMenuItem.getAttribute("itemIndex")]._shell.download;
       if (download.succeeded) {
         await this._moveDownload(download, downloadsDir);
       }
@@ -740,6 +732,9 @@ var WindowListener = {
  */
 XPCOMUtils.defineLazyPreferenceGetter(CloudDownloadsView, "gIsAPIEnabled",
   CLOUD_SERVICES_PREF + "api.enabled", false, () => CloudDownloadsView.toggleAPIEnabledState());
+
+XPCOMUtils.defineLazyPreferenceGetter(CloudDownloadsInternal, "downloadDirSetting",
+  "browser.download.dir", "", () => CloudDownloadsInternal._setDefaultDownloadDirIconURL());
 
 XPCOMUtils.defineLazyPreferenceGetter(CloudDownloadsInternal, "preferredProviderKey",
   CLOUD_SERVICES_PREF + "storage.key", "");

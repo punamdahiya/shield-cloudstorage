@@ -15,6 +15,7 @@ module.exports = {
   root: true,
   rules: {
     "eqeqeq": "off",
+    "no-lonely-if": "off",
     "indent": ["error", 2],
     "no-console": "error",
     "no-warning-comments": ["off"],

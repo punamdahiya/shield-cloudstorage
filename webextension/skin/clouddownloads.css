@@ -28,10 +28,6 @@
   border-bottom: 1px solid var(--panel-separator-color);
 }
 
-#panelCloudNotification[hidden="true"] {
-  display: none;
-}
-
 #panelCloudNotification .text-link {
   margin-left: 0px;
   margin-right: 0px;
@@ -69,15 +65,6 @@
   opacity: var(--downloads-item-details-opacity);
 }
 
-#multiProviderSelect[hidden="true"] {
-  display: none;
-}
-
-#multiProviderSelect .panelCloudNotificationUI-radio {
-  min-width: 16px;
-  height: 16px;
-}
-
 #multiProviderSelect .radio-icon {
   margin-inline-end: 6px;
   width: 16px;
@@ -85,15 +72,20 @@
   height: 16px;
 }
 
-#multiProviderSelect .panelCloudNotificationUI-radio[provider="dropbox"] {
+.panelCloudNotificationUI-radio {
+  min-width: 16px;
+  height: 16px;
+}
+
+.panelCloudNotificationUI-radio[provider="dropbox"] {
   list-style-image: url("/skin/dropbox.svg");
 }
 
-#multiProviderSelect .panelCloudNotificationUI-radio[provider="googledrive"] {
+.panelCloudNotificationUI-radio[provider="googledrive"] {
   list-style-image: url("/skin/googledrive.svg");
 }
 
-#panelCloudNotification .panelCloudNotificationUI-button {
+.panelCloudNotificationUI-button {
   -moz-appearance: none;
   color: #0c0c0d;
   background-color: rgba(12, 12, 13, 0.1);
@@ -104,20 +96,20 @@
   margin: 5px 5px 10px;
 }
 
-#panelCloudNotification .panelCloudNotificationUI-button[default] {
+.panelCloudNotificationUI-button[default] {
   color: #ffffff;
   background-color: #0060df;
 }
 
-#panelCloudNotification .panelCloudNotificationUI-button[disabled] {
+.panelCloudNotificationUI-button[disabled] {
   opacity: 0.4;
 }
 
-#panelCloudNotification .panelCloudNotificationUI-button:hover:not([disabled]) {
+.panelCloudNotificationUI-button:hover:not([disabled]) {
   background-color: rgba(12, 12, 13, 0.2);
 }
 
-#panelCloudNotification .panelCloudNotificationUI-button[default]:hover:not([disabled]) {
+.panelCloudNotificationUI-button[default]:hover:not([disabled]) {
   background-color: #003eaa;
 }
 
