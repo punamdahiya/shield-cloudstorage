@@ -38,37 +38,41 @@ class StudyLifeCycleHandler {
    * call `this.enableFeature` to actually do the feature/experience/ui.
    */
   constructor() {
+    // IMPORTANT:  Listen for onEndStudy first.
     browser.study.onEndStudy.addListener(this.handleStudyEnding);
     browser.study.onReady.addListener(this.enableFeature);
   }
 
   /**
-   * do some cleanup / 'feature reset'
+   * Cleanup
    *
    * (If you have privileged code, you might need to clean
    *  that up as well.
    * See:  https://firefox-source-docs.mozilla.org/toolkit/components/extensions/webextensions/lifecycle.html
+   *
+   * @returns {undefined}
    */
-  async cleanup() {
-    await browser.storage.local.clear();
+  cleanup() {
+    // do whatever work your addon needs to clean up
+    browser.cloudstorage.cleanUpPrefs();
   }
 
   /**
+   *
+   * side effects
    * - set up expiration alarms
    * - make feature/experience/ui with the particular variation for this user.
+   *
+   * @param {object} studyInfo browser.study.studyInfo object
+   *
+   * @returns {undefined}
    */
-  async enableFeature(studyInfo) {
-    if (studyInfo.timeUntilExpire) {
+  enableFeature(studyInfo) {
+    /* if (studyInfo.timeUntilExpire) {
       browser.alarms.create(studyInfo.timeUntilExpire, () =>
         browser.study.endStudy("expired"),
       );
-    }
-    // browser.browserAction.setTitle({ title: studyInfo.variation.name });
-    // browser.study.log(
-    //  `Changed the browser action title to the variation name: ${
-    //    studyInfo.variation.name
-    //  }`,
-    // );
+    } */
 
     try {
       let interval = 0;
@@ -87,8 +91,8 @@ class StudyLifeCycleHandler {
       }
 
       browser.cloudstorage.onRecordTelemetry.addListener(
-        (value) => {
-          browser.study.sendTelemetry(value);
+        (payload) => {
+          browser.study.sendTelemetry(payload);
         },
       );
 
@@ -105,21 +109,32 @@ class StudyLifeCycleHandler {
    *
    * - opens 'ending' urls (surveys, for example)
    * - calls cleanup
+   *
+   * @param {object} ending An ending result
+   *
+   * @returns {undefined}
    */
   async handleStudyEnding(ending) {
-    // browser.study.log("study wants to end:", ending);
-    ending.urls.forEach(async url => await browser.tabs.create({ url }));
+    // browser.study.log(`study wants to end:`, ending);
+    ending.urls.forEach(async url => {
+      await browser.tabs.create({ url });
+    });
+
     switch (ending.reason) {
     default:
       this.cleanup();
       // uninstall the addon?
       break;
     }
+    // actually remove the addon.
+    await browser.study.uninstall();
   }
 }
 
 /**
  * Run every startup to get config and instantiate the feature
+ *
+ * @returns {undefined}
  */
 async function onEveryExtensionLoad() {
   new StudyLifeCycleHandler();

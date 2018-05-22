@@ -29,6 +29,7 @@
     "lint": "npm-run-all lint:*",
     "lint:css": "stylelint 'webextension/skin/*.css'",
     "lint:js": "eslint webextension --ext=js,json,jsm",
+    "postinstall": "node_modules/shield-studies-addon-utils/bin/copyStudyUtils.js webextension/privileged",
     "test": "echo \"Error: no test specified\" && exit 1"
   }
 }

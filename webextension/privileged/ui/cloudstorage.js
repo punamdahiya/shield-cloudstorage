@@ -23,23 +23,6 @@ this.cloudstorage = class extends ExtensionAPI {
       context.extension.rootURI.resolve("privileged/ui/CloudDownloadsView.jsm")
     );
 
-    function cleanUpPrefs() {
-      // Ensure cloud storage study prefs are cleared
-      ["lastprompt", "interval.prompt", "storage.key", "api.enabled"].forEach(pref => {
-        Services.prefs.clearUserPref(`cloud.services.${pref}`);
-      });
-    }
-
-    context.extension.callOnClose({
-      close: () => {
-        if (context.extension.shutdownReason === "ADDON_UNINSTALL" ||
-            context.extension.shutdownReason === "ADDON_DISABLE") {
-          Services.prefs.setBoolPref("cloud.services.api.enabled", false);
-          cleanUpPrefs();
-        }
-      },
-    });
-
     const cloudStorageEventEmitter = new EventEmitter();
 
     return {
@@ -61,6 +44,15 @@ this.cloudstorage = class extends ExtensionAPI {
             Services.prefs.setCharPref("cloud.services.interval.prompt", interval);
           }
           return path;
+        },
+
+        cleanUpPrefs() {
+          // Set API enabled false to uninitialize listeners in CloudDownloadsView
+          Services.prefs.setBoolPref("cloud.services.api.enabled", false);
+          // Ensure cloud storage study prefs are cleared
+          ["lastprompt", "interval.prompt", "storage.key", "api.enabled"].forEach(pref => {
+            Services.prefs.clearUserPref(`cloud.services.${pref}`);
+          });
         },
 
         onRecordTelemetry: new EventManager(
