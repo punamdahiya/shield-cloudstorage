@@ -116,9 +116,13 @@ class StudyLifeCycleHandler {
    */
   async handleStudyEnding(ending) {
     // browser.study.log(`study wants to end:`, ending);
-    ending.urls.forEach(async url => {
+    //ending.urls.forEach(async url => {
+      //await browser.tabs.create({ url });
+    //});
+
+    for (const url of ending.urls) {
       await browser.tabs.create({ url });
-    });
+    }
 
     switch (ending.reason) {
     default:

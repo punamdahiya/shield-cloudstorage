@@ -8,6 +8,7 @@ Cloud storage Shield Study WebExtension Experiment
 
   ```
   npm install --save mozilla/shield-studies-addon-utils#develop
+  npm run postinstall
   ```
 
 3. Install
